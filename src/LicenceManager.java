@@ -2,7 +2,6 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -16,12 +15,24 @@ public class LicenceManager {
     private String encryptedLicenseContent;
     private final PrivateKey privateKey;
 
+    private byte[] signature;
+
+    public void setSignature(byte[] signature){
+        this.signature=signature;
+    }
+
+    public byte[] getSignature() {
+        return signature;
+    }
+
     public LicenceManager() throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
         KeyFactory kf = KeyFactory.getInstance("RSA");
         this.privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(Files.readAllBytes(Path.of("src/keys/private.key"))));
+
     }
-    public void setEncryptedLicenseContent(String encryptedLicenseContent) {
+    public void setEncryptedLicenseContent(String encryptedLicenseContent) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, IOException, BadPaddingException, InvalidKeyException, SignatureException {
         this.encryptedLicenseContent = encryptedLicenseContent;
+        sendSignature();
     }
 
     private String DecryptLicenseContent() throws IOException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
@@ -45,7 +56,7 @@ public class LicenceManager {
         return new String(Base64.getEncoder().encode(signature.sign()));
     }
 
-    public void sendSignature(Client client) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, IOException, BadPaddingException, SignatureException, InvalidKeyException {
-        client.setSignature(SignHashedLicenseContent().getBytes());
+    public void sendSignature() throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, IOException, BadPaddingException, SignatureException, InvalidKeyException {
+        setSignature(SignHashedLicenseContent().getBytes());
     }
 }
