@@ -1,7 +1,4 @@
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
+import javax.crypto.*;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -13,7 +10,10 @@ import java.nio.file.Path;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
+
 
 public class Client {
     private static String serialNumber;
@@ -65,11 +65,24 @@ public class Client {
         return username + "$" + serialNumber + "$" + MACAddress + "$" + diskSerialNumber + "$" + motherboardSerialNumber;
     }
 
-    private static String EncryptLicenseContent() throws NoSuchPaddingException, NoSuchAlgorithmException, IOException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-        // encrypt the content with public key
-        Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-        return new String(cipher.doFinal(getLicenceContent().getBytes()));
+    private static List<byte[]> EncryptLicenseContent() throws NoSuchPaddingException, NoSuchAlgorithmException, IOException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+        //generate a symmetric key
+        KeyGenerator generator = KeyGenerator.getInstance("AES");
+        generator.init(128); // The AES key size in number of bits
+        SecretKey symmetricKey = generator.generateKey();
+        //encrypt the content with symmetric key
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.ENCRYPT_MODE, symmetricKey);
+        byte[] encryptedText = cipher.doFinal(getLicenceContent().getBytes());
+
+        // encrypt the symmetric key with public key
+        Cipher cipher2 = Cipher.getInstance("RSA");
+        cipher2.init(Cipher.PUBLIC_KEY, publicKey);
+        byte[] encryptedSymmetricKey = cipher.doFinal(symmetricKey.getEncoded());
+        List<byte[]> encryptedLicenseContentWithKey = new ArrayList<byte[]>();
+        encryptedLicenseContentWithKey.add(encryptedText);
+        encryptedLicenseContentWithKey.add(encryptedSymmetricKey);
+        return encryptedLicenseContentWithKey;
     }
 
     public static void sendEncryptedLicenseContent(LicenceManager licenceManager) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, IOException, BadPaddingException, InvalidKeyException, SignatureException {
