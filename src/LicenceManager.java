@@ -1,5 +1,7 @@
-import javax.crypto.*;
-import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -7,9 +9,7 @@ import java.nio.file.Path;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.List;
 
 public class LicenceManager {
     private byte[] encryptedLicenseContent;
@@ -31,8 +31,9 @@ public class LicenceManager {
 
     }
     public void setEncryptedLicenseContent(byte[] encryptedLicenseContent) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, IOException, BadPaddingException, InvalidKeyException, SignatureException {
+        System.out.println("Server -- Server is being requested... ");
         this.encryptedLicenseContent = encryptedLicenseContent;
-        System.out.print("Server -- Incoming Encrypted License Text: ");
+        System.out.print("Server -- Incoming Encrypted Text: ");
         System.out.println(new String(Base64.getUrlEncoder().encode(encryptedLicenseContent)));
         //first element in list encrypted text,second element is encrypted key
         sendSignature();
@@ -44,7 +45,7 @@ public class LicenceManager {
         cipher.init(Cipher.DECRYPT_MODE, privateKey);
         byte[] decrypted = cipher.doFinal(encryptedLicenseContent);
         String decryptedText =  new String(decrypted);
-        System.out.println("Server -- Decrypted License Text: " + decryptedText);
+        System.out.println("Server -- Decrypted Text: " + decryptedText);
         return decrypted;
     }
 

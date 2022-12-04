@@ -1,6 +1,9 @@
-import javax.crypto.*;
-import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -11,12 +14,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.List;
 
 public class Client {
     private static String serialNumber;
@@ -45,21 +44,48 @@ public class Client {
         serialNumber = "1234-5678-9012"; // static
         KeyFactory kf = KeyFactory.getInstance("RSA");
         publicKey = kf.generatePublic(new X509EncodedKeySpec(Files.readAllBytes(Path.of("src/keys/public.key"))));
+        getLicenceContent();
+        HashLicenseContent();
         File f = new File("licence.txt");
         licenceManager=new LicenceManager();
         if(f.exists() && !f.isDirectory()) {
 
+            try {
+                byte[] licenceSignatureBytes= Files.readAllBytes(Path.of("licence.txt")); //If the signature corrupted,it may throw exception in here
+                System.out.println("Client -- License file is found.");
+                if(verifyLicense(licenceSignatureBytes)){
+                    System.out.println("Client -- Succeed. The license is correct.");
+                }else{
+                    System.out.println("Client -- The license file has been broken!!");
+                    Licencing(f);
+                }
+            }
+            catch (Exception e){
+                System.out.println("Client -- The license file has been broken!!");
+                Licencing(f);
+            }
         }else {
             System.out.println("Client -- License file is not found.");
-            getLicenceContent();
-            sendEncryptedLicenseContent(licenceManager);
-            byte[] managersLicence = licenceManager.getSignature();
-            if(verifyLicense(managersLicence)){
-                System.out.println("Client -- License file is not found.");
-                System.out.println("Client -- Succeeded. The license file content is secured and signed by the server.");
-            }
+            Licencing(f);
         }
     }
+
+    public static void Licencing(File f) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, IOException, BadPaddingException, SignatureException, InvalidKeyException {
+        System.out.println("Client -- Raw License Text: " + licenseContent);
+        sendEncryptedLicenseContent(licenceManager);
+
+        byte[] managersLicence = licenceManager.getSignature();
+        if(verifyLicense(managersLicence)){
+            System.out.println("Client -- License file is not found.");
+            System.out.println("Client -- Succeed. The license file content is secured and signed by the server.");
+            f.createNewFile();
+            try (FileOutputStream outputStream = new FileOutputStream("licence.txt")) {
+                outputStream.write(managersLicence);
+            }
+
+        }
+    }
+
     public void setSignature(byte[] signature) {
         this.signature = signature;
     }
@@ -79,7 +105,6 @@ public class Client {
     private static String getLicenceContent(){
         String rawLicenseText = username + "$" + serialNumber + "$" + MACAddress + "$" + diskSerialNumber + "$" + motherboardSerialNumber;
         licenseContent = rawLicenseText;
-        System.out.println("Client -- Raw License Text: " + rawLicenseText);
         return rawLicenseText;
     }
 
@@ -90,13 +115,12 @@ public class Client {
         byte[] encrypted = cipher.doFinal(licenseContent.getBytes());
         System.out.print("Client -- Encrypted License Text: ");
         System.out.println(new String(Base64.getUrlEncoder().encode(encrypted)));
+        System.out.println("Client -- MD5 License Text: " + hashLicenseContent);
         return encrypted;
     }
 
     public static void sendEncryptedLicenseContent(LicenceManager licenceManager) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, IOException, BadPaddingException, InvalidKeyException, SignatureException {
         byte[] content = EncryptLicenseContent();
-        HashLicenseContent();
-        System.out.println("Server is being requested... ");
         licenceManager.setEncryptedLicenseContent(content);
     }
 
@@ -104,7 +128,6 @@ public class Client {
         MessageDigest digest = MessageDigest.getInstance("MD5"); // take the hash of the license content with MD5
         byte[] hash = digest.digest(licenseContent.getBytes(StandardCharsets.UTF_8));
         String md5LicenseText = new String(Base64.getUrlEncoder().encode(hash), StandardCharsets.UTF_8);
-        System.out.println("Client -- MD5 License Text: " + md5LicenseText);
         hashLicenseContent = md5LicenseText;
         return md5LicenseText; // convert the hashed bytes to string
     }
@@ -112,7 +135,12 @@ public class Client {
     public static boolean verifyLicense(byte[] licenceSignature) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
         Signature signature = Signature.getInstance("SHA256WithRSA");
         signature.initVerify(publicKey); // verify signature with public key
+        try{
         signature.update(Base64.getUrlDecoder().decode(hashLicenseContent));
+        }
+        catch (Exception e){
+            return false;
+        }
         return signature.verify(licenceSignature);
     }
 }
