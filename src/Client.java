@@ -2,9 +2,7 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -31,19 +29,19 @@ public class Client {
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException, SignatureException {
         System.out.println("Client started...");
         // change the address to function call when submitting
-        MACAddress = "36:7d:da:df:54:9e"; // the function to receive mac address can be implemented independent of the platform
+        MACAddress = getMACAddress(); // the function to receive mac address can be implemented independent of the platform
         System.out.println("My MAC: " + MACAddress);
-        diskSerialNumber = "C02DW0N0ML7H"; // change it to windows function call when submitting
+        diskSerialNumber = getSerialNumber();
         System.out.println("My Disk ID: " + diskSerialNumber);
         // 4810-E58D for Windows Machine
         // C02DW0N0ML7H for macOS Machine
-        motherboardSerialNumber = "820-01949-A"; // hard-coded for macOS machine - change it to windows function call when submitting
+        motherboardSerialNumber = getWindowsMotherBoardSerialNumber();
         System.out.println("My Motherboard ID: " + motherboardSerialNumber);
         System.out.println("LicenseManager service started...");
         username = "ImreAndCagla"; // static
         serialNumber = "1234-5678-9012"; // static
         KeyFactory kf = KeyFactory.getInstance("RSA");
-        publicKey = kf.generatePublic(new X509EncodedKeySpec(Files.readAllBytes(Path.of("src/keys/public.key"))));
+        publicKey = kf.generatePublic(new X509EncodedKeySpec(Files.readAllBytes(Path.of("public.key"))));
         getLicenceContent();
         HashLicenseContent();
         File f = new File("licence.txt");
@@ -142,5 +140,52 @@ public class Client {
             return false;
         }
         return signature.verify(licenceSignature);
+    }
+
+    public static String getWindowsMotherBoardSerialNumber()
+    {
+        String command = "wmic baseboard get serialnumber";
+        String serial=null;
+
+        try {
+            Process SerialNumberProcess
+                    = Runtime.getRuntime().exec(command);
+            InputStreamReader ISR = new InputStreamReader(
+                    SerialNumberProcess.getInputStream());
+            BufferedReader br = new BufferedReader(ISR);
+            for(int i=0;i<3;i++){
+                serial = br.readLine().trim();
+                SerialNumberProcess.waitFor();
+            }
+            br.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            serial = null;
+        }
+        return serial;
+    }
+
+    public static String getSerialNumber() throws IOException {
+        String line;
+        String serial = null;
+        String command = "wmic diskdrive get serialnumber";
+        try {
+            Process SerialNumberProcess
+                    = Runtime.getRuntime().exec(command);
+            InputStreamReader ISR = new InputStreamReader(
+                    SerialNumberProcess.getInputStream());
+            BufferedReader br = new BufferedReader(ISR);
+            for(int i=0;i<3;i++){
+                serial = br.readLine().trim();
+                SerialNumberProcess.waitFor();
+            }
+            br.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            serial = null;
+        }
+        return serial;
     }
 }

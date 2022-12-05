@@ -27,7 +27,7 @@ public class LicenceManager {
 
     public LicenceManager() throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
         KeyFactory kf = KeyFactory.getInstance("RSA");
-        this.privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(Files.readAllBytes(Path.of("src/keys/private.key"))));
+        this.privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(Files.readAllBytes(Path.of("private.key"))));
 
     }
     public void setEncryptedLicenseContent(byte[] encryptedLicenseContent) throws NoSuchPaddingException, IllegalBlockSizeException, NoSuchAlgorithmException, IOException, BadPaddingException, InvalidKeyException, SignatureException {
